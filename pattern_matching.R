@@ -16,6 +16,7 @@ library(opera)
 library(dtw)
 library(liqueueR)
 library(collections)
+library(calculus)
 devAskNewPage(ask = FALSE)
 
 # Get S&P500 data
@@ -208,16 +209,30 @@ p_m_forecast <- function(similar_intervals, curr_interval, test_len=22, num_mode
   }
   return(weight_mat)
 }
-
-w <- p_m_forecast(ints)
-
-w
-
+train_len <- 45
+h <- 22
+train <- subset(spy_ts, start = length(spy_ts) - train_len + 1)
 
 
 
+arima_fc <- forecast(auto.arima(train, biasadj=TRUE),h=h)$mean
+hw_fc <- forecast(HoltWinters(train, gamma=FALSE), h=h)$mean
+ets_fc <- forecast(ets(train), h=h)$mean
 
+fc_mat <- cbind(hw_fc, ets_fc, arima_fc)
 
+View(fc_mat)
+View(w)
+ncol(w)
+nrow(fc_mat)
+ncol(fc_mat)
 
+weighted_fc <- numeric(nrow(fc_mat))
+
+for (i in 1:nrow(fc_mat)) {
+  weighted_fc[i] <- sum(w[i,]*fc_mat[i,])
+}
+
+weighted_fc
 
 
