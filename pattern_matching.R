@@ -19,7 +19,7 @@ library(collections)
 devAskNewPage(ask = FALSE)
 
 # Get S&P500 data
-start_date <- as.Date("1970-01-01")
+start_date <- as.Date("2009-01-01")
 spy <- Ad(getSymbols("SPY", auto.assign = FALSE, from=start_date, warning=FALSE))
 names(spy) <- "adjusted"
 spy_ts <- ts_ts(spy)
@@ -173,7 +173,51 @@ dollar_progress <- function(similar_intervals, dl_ts=diff(log(spy_ts)), threshol
 returns_mat <- dollar_progress(ints)
 matplot(returns_mat, type="l")
 
+ints
+
 
 mean(returns_mat[nrow(returns_mat), ])
 sd(returns_mat[nrow(returns_mat), ])
-# table with rank, start, end, 
+# forecast with similar
+# for each of the top similar intervals - run opera for the duration of the period,
+# come up with weights - weight the weights with roc?
+spy_ts
+p_m_forecast <- function(similar_intervals, curr_interval, test_len=22, num_models=3, ts=spy_ts) {
+  roc <- roc(length(similar_intervals))
+  weight_mat <- matrix(0, nrow=(test_len), ncol=num_models)
+  
+  for (i in 1:length(similar_intervals)) {
+    interval <- similar_intervals[[i]]
+    end_int = end(interval)
+    train <- window(ts, start=start(interval), end=end_int)
+    freq <- frequency(interval)
+    start <- end_int+(1/freq)
+    end <- end_int + (test_len/freq)
+    test <- window(ts, start=start, end = end)
+    h <- length(test)
+
+    HW <- forecast(HoltWinters(train, gamma=FALSE), h=h)
+    ETS <- forecast(ets(train), h=h)
+    ARIMA <- forecast(auto.arima(train), h=h)
+    X <- cbind(HW=HW$mean, ETS=ETS$mean, ARIMA=ARIMA$mean)
+    df <- cbind(spy_ts, X)
+    colnames(df) <- c("SPY" ,"HW", "ETS", "ARIMA")
+    MLpol0 <- mixture(model="MLpol", loss.type="square")
+    weights <- predict(MLpol0, X, test, type="weights")
+    weight_mat <- weight_mat + weights * roc[i] 
+  }
+  return(weight_mat)
+}
+
+w <- p_m_forecast(ints)
+
+w
+
+
+
+
+
+
+
+
+
