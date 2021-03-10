@@ -1,4 +1,4 @@
-# Load libraries
+#Load libraries
 library(xts)
 library(quantmod)
 library(forecast)
@@ -190,13 +190,12 @@ p_m_forecast <- function(similar_intervals, curr_interval, test_len=22, num_mode
   for (i in 1:length(similar_intervals)) {
     interval <- similar_intervals[[i]]
     end_int = end(interval)
-    train <- window(ts, start=start(interval), end=end_int)
     freq <- frequency(interval)
     start <- end_int+(1/freq)
     end <- end_int + (test_len/freq)
     test <- window(ts, start=start, end = end)
     h <- length(test)
-
+    
     HW <- forecast(HoltWinters(train, gamma=FALSE), h=h)
     ETS <- forecast(ets(train), h=h)
     ARIMA <- forecast(auto.arima(train), h=h)
@@ -221,6 +220,8 @@ ets_fc <- forecast(ets(train), h=h)$mean
 
 fc_mat <- cbind(hw_fc, ets_fc, arima_fc)
 
+w <- p_m_forecast(ints) 
+
 View(fc_mat)
 View(w)
 ncol(w)
@@ -228,11 +229,73 @@ nrow(fc_mat)
 ncol(fc_mat)
 
 weighted_fc <- numeric(nrow(fc_mat))
-
+fc_mat
+w
 for (i in 1:nrow(fc_mat)) {
   weighted_fc[i] <- sum(w[i,]*fc_mat[i,])
 }
 
+plot(weighted_fc)
 weighted_fc
+
+
+# do this for rolling x-day windows treated as "recent" - make sure all have 
+# past out sample, only use past observations for each 
+# get N top similar past intervals
+# get NEXT_WINDOW-length periods, for each of these periods
+# for ALL intervals (recent, top similar, next-windows following top similar), get
+# dollar performance
+# variance of returns
+# skewness and kurtosis of return distribution
+#
+#
+#
+#
+get_rolling_range <- function(query_window, dist_to_start, dist_to_end) {
+  
+}
+
+get_rolling_windows <- function(range_start, range_end, window_length, dist_between_windows) {
+  
+}
+
+get_top_similar_intervals <- function(query_window, time_series, interval_length, num_top_intervals) {
+  
+}
+
+get_following_windows <- function(similar_intervals) {
+  
+}
+
+get_returns <- function(window) {
+  
+}
+
+compute_summary_statistics <- function(returns) {
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
