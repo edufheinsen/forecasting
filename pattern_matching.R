@@ -251,21 +251,131 @@ weighted_fc
 #
 #
 #
-get_rolling_range <- function(query_window, dist_to_start, dist_to_end) {
-  
+
+end_int <- end(interval)
+freq <- frequency(interval)
+start <- end_int+(1/freq)
+end <- end_int + (window_length/freq)
+window_after <- window(dl_ts, start=start, end = end)
+
+curr <- numeric(length(window_after) + 1)
+
+
+get_rolling_windows <- function(time_series, range_start, range_end, window_length, dist_between_windows) {
+  rolling_windows <- list()
+  freq <- frequency(time_series)
+  start_int <- range_start[1] + range_start[2]/freq
+  end_int <- start_int + window_length/freq
+  rolling_windows[[1]] <- window(time_series, start=start_int, end=end_int)
+  range_end_index <- range_end[1] + range_end[2]/freq
+  i <- 1
+  while (end_int < range_end_index) {
+    i <- i + 1
+    start_int <- end_int + dist_between_windows/freq
+    end_int <- start_int + window_length/freq 
+    new_int <- window(time_series, start=start_int, end=end_int)
+    rolling_windows[[i]] <- window(time_series, start=start_int, end=end_int)
+  }
+  return(rolling_windows)
+}
+k <- get_rolling_windows(spy_ts, c(2016, 1), c(2020, 5), 22, 22)
+
+x <- 1
+while (x < 5) {
+  x <- x + 1
+  print("ed")
 }
 
-get_rolling_windows <- function(range_start, range_end, window_length, dist_between_windows) {
-  
+l <- list(numeric)
+l[[1]] <- 5
+l <- append(l, 2)
+
+l
+s <- floor(start(spy_ts))
+
+f <- frequency(spy_ts)
+
+s <- c(2009, 2)
+
+w <- window(spy_ts, start=s, end=s+2)
+
+w
+
+k <- window(spy_ts, start=(2009+1/freq))
+
+length(k)
+length(w)
+
+start(spy_ts)
+
+class(w)
+
+# call as
+# return
+# list of window indices - correspond to (2016, 1, 1)-(2016, 2, 1), etc
+
+
+get_rolling_range <- function(time_series, query_window) {
+  start <- start(time_series)
+  end <- start(query_window) - 2 * length(query_window) / frequency(time_series)
+  return(c(start, end))
 }
 
-get_top_similar_intervals <- function(query_window, time_series, interval_length, num_top_intervals) {
+ex_rolling <- k[[1]]
+
+length(ex_rolling)
+
+vec <- get_rolling_range(spy_ts, ex_rolling)
+
+
+get_top_similar_intervals <- function(time_series_original, query_window, start_range, end_range, num_top_intervals) {
+  time_series <- diff(log(time_series_original))
+  interval_length <- length(query_window)
   
+  q <- priority_queue()
+  q_dist <- priority_queue()
+  
+  freq <- frequency(time_series)
+  start_int <- start_range
+  end_int <- start_int + interval_length/freq
+  curr_window <- window(time_series, start=start_int, end=end_int)
+  alignment <- dtw(curr_window, query_window, keep=TRUE)
+  dist <- alignment$normalizedDistance
+  q$push(curr_window, priority = -dist)
+  q_dist$push(dist, priority = -dist)
+
+  while (end_int < end_range) {
+    start_int <- end_int + interval_length/freq
+    end_int <- start_int + interval_length/freq 
+    curr_window <- window(time_series, start=start_int, end=end_int)
+    alignment <- dtw(curr_window, query_window, keep=TRUE)
+    dist <- alignment$normalizedDistance
+    q$push(curr_window, priority = -dist)
+    q_dist$push(dist, priority = -dist)
+  
+  }
+  
+  top_similar_intervals <- q$as_list()[1:num_top_intervals]
+  min_distances <- unlist(q_dist$as_list()[1:num_top_intervals], use.names = FALSE)
+  
+  return(list(top_similar_intervals, min_distances, query_window))
 }
 
-get_following_windows <- function(similar_intervals) {
-  
+sim <- get_top_similar_intervals(spy_ts, ex_rolling, vec[1], vec[2], 20)
+sim[[1]]
+
+
+get_following_windows <- function(time_series, intervals) {
+  following_windows <- list()
+  for (interval in intervals) {
+    start <- end(interval) + 1/freq
+    end <- start + length(interval)/freq
+    following <- window(time_series, start=start, end=end)
+    append(following_windows, following)
+  }
+  return(following_windows)
 }
+
 
 get_returns <- function(window) {
   
@@ -276,14 +386,27 @@ compute_summary_statistics <- function(returns) {
 }
 
 
+# pseudocode
 
+# what is interesting
+# can direction be predicted? (if 15/20 ended up at positive, will this one end up as positive too)
+# can dispersion be predicted (if past similar were volatile, will returns be volatile right after this one too)
 
+rolling_windows <- get_rolling_windows()
 
-
-
-
-
-
+for (qry_window in rolling_windows) {
+  following_window_actual <- get_following(qry_window)
+  c(start_range, end_range) <- get_rolling_range(qry_window)
+  similar_ints <- get_top_similar_intervals(qry_window, start_range, end_range)
+  following_windows_similar <- get_following(windows(similar_ints))
+  # 1 direction
+  # dollar progress, weighted by similarity, of "following windows similar"
+  # dollar progress of following window actual
+  # save both in list to graph/visualize later
+  # save single values as data points to plot, calculate correlation, etc
+  # 2 volatility
+  # same as above with volatility instead of dollar progress
+}
 
 
 
