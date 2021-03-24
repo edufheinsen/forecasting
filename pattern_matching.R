@@ -173,7 +173,7 @@ dollar_progress <- function(similar_intervals, dl_ts=diff(log(spy_ts)), threshol
 
 returns_mat <- dollar_progress(ints)
 matplot(returns_mat, type="l")
-
+View(returns_mat)
 ints
 
 
@@ -252,15 +252,6 @@ weighted_fc
 #
 #
 
-end_int <- end(interval)
-freq <- frequency(interval)
-start <- end_int+(1/freq)
-end <- end_int + (window_length/freq)
-window_after <- window(dl_ts, start=start, end = end)
-
-curr <- numeric(length(window_after) + 1)
-
-
 get_rolling_windows <- function(time_series, range_start, range_end, window_length, dist_between_windows) {
   rolling_windows <- list()
   freq <- frequency(time_series)
@@ -280,53 +271,13 @@ get_rolling_windows <- function(time_series, range_start, range_end, window_leng
 }
 k <- get_rolling_windows(spy_ts, c(2016, 1), c(2020, 5), 22, 22)
 
-x <- 1
-while (x < 5) {
-  x <- x + 1
-  print("ed")
-}
-
-l <- list(numeric)
-l[[1]] <- 5
-l <- append(l, 2)
-
-l
-s <- floor(start(spy_ts))
-
-f <- frequency(spy_ts)
-
-s <- c(2009, 2)
-
-w <- window(spy_ts, start=s, end=s+2)
-
-w
-
-k <- window(spy_ts, start=(2009+1/freq))
-
-length(k)
-length(w)
-
-start(spy_ts)
-
-class(w)
-
-# call as
-# return
-# list of window indices - correspond to (2016, 1, 1)-(2016, 2, 1), etc
-
 
 get_rolling_range <- function(time_series, query_window) {
   start <- start(time_series)
   end <- start(query_window) - 2 * length(query_window) / frequency(time_series)
   return(c(start, end))
 }
-
-ex_rolling <- k[[1]]
-
-length(ex_rolling)
-
-vec <- get_rolling_range(spy_ts, ex_rolling)
-
+ 
 
 get_top_similar_intervals <- function(time_series_original, query_window, start_range, end_range, num_top_intervals) {
   time_series <- diff(log(time_series_original))
@@ -335,14 +286,8 @@ get_top_similar_intervals <- function(time_series_original, query_window, start_
   q <- priority_queue()
   q_dist <- priority_queue()
   
-  freq <- frequency(time_series)
-  start_int <- start_range
-  end_int <- start_int + interval_length/freq
-  curr_window <- window(time_series, start=start_int, end=end_int)
-  alignment <- dtw(curr_window, query_window, keep=TRUE)
-  dist <- alignment$normalizedDistance
-  q$push(curr_window, priority = -dist)
-  q_dist$push(dist, priority = -dist)
+  end_int <- start_range
+  
 
   while (end_int < end_range) {
     start_int <- end_int + interval_length/freq
@@ -361,27 +306,49 @@ get_top_similar_intervals <- function(time_series_original, query_window, start_
   return(list(top_similar_intervals, min_distances, query_window))
 }
 
-sim <- get_top_similar_intervals(spy_ts, ex_rolling, vec[1], vec[2], 20)
-sim[[1]]
-
-
 get_following_windows <- function(time_series, intervals) {
   following_windows <- list()
-  for (interval in intervals) {
+  freq <- frequency(time_series)
+  for (i in 1:length(intervals)) {
+    interval <- intervals[[i]]
     start <- end(interval) + 1/freq
     end <- start + length(interval)/freq
+
     following <- window(time_series, start=start, end=end)
-    append(following_windows, following)
+    following_windows[[i]] <- following
   }
   return(following_windows)
 }
 
 
-get_returns <- function(window) {
+get_dollar_progress <- function(windows) {
+  dollar_performance <- matrix(nrow=(length(diff(log(windows[[1]])))+1), ncol=0)
+  for (i in 1:length(windows)) {
+    window_after <- diff(log(windows[[i]]))
+    
+    curr <- numeric(length(window_after) + 1)
+    curr[1] <- 1
+    for (i in 1:length(window_after)) {
+      curr[i + 1] <- curr[i] * (1 + window_after[i])
+    }
+    dollar_performance <- cbind(dollar_performance, curr)
+  }
+  roc <- roc(length(windows))
+  weighted_dollar_progress <- sum(roc * dollar_performance[nrow(dollar_performance), ])
+  return(list(weighted_dollar_progress, dollar_performance))
+}
+
+roc(15)
+
+get_variance <- function(window) {
   
 }
 
-compute_summary_statistics <- function(returns) {
+get_skewness <- function(window) {
+  
+}
+
+get_kurtosis <- function(window) {
   
 }
 
@@ -391,14 +358,46 @@ compute_summary_statistics <- function(returns) {
 # what is interesting
 # can direction be predicted? (if 15/20 ended up at positive, will this one end up as positive too)
 # can dispersion be predicted (if past similar were volatile, will returns be volatile right after this one too)
+START_QRY_DATE <- c(2018, 1)
+END_QRY_DATE <- c(2020, 10)
+window_length <- 22
+dist_between_windows <- 22
+rolling_windows <- get_rolling_windows(spy_ts, START_QRY_DATE, END_QRY_DATE, window_length, dist_between_windows)
 
-rolling_windows <- get_rolling_windows()
+qry_window <- rolling_windows[[1]]
+following_window_actual <- get_following_windows(spy_ts, list(qry_window))
+range <- get_rolling_range(spy_ts, qry_window)
+similar_ints <- get_top_similar_intervals(spy_ts, qry_window, range[1], range[2], 15)[[1]]
+similar_ints
+following_windows_similar <- get_following_windows(spy_ts, similar_ints)
+following_windows_similar
+for (window in similar_ints) {
+  print(length(window))
+}
+dollar_p_similar <- get_dollar_progress(following_windows_similar)
+dollar_p_actual <- get_dollar_progress(following_window_actual)
+print(dollar_p_similar)
+print(dollar_p_actual)
+
+total <- 0
+match <- 0
+
+dollar_similar_list <- numeric()
+dollar_actual_list <- numeric()
 
 for (qry_window in rolling_windows) {
-  following_window_actual <- get_following(qry_window)
-  c(start_range, end_range) <- get_rolling_range(qry_window)
-  similar_ints <- get_top_similar_intervals(qry_window, start_range, end_range)
-  following_windows_similar <- get_following(windows(similar_ints))
+  following_window_actual <- get_following_windows(spy_ts, list(qry_window))
+  range <- get_rolling_range(spy_ts, qry_window)
+  similar_ints <- get_top_similar_intervals(spy_ts, qry_window, range[1], range[2], 1)[[1]]
+  following_windows_similar <- get_following_windows(spy_ts, similar_ints)
+  dollar_p_similar <- get_dollar_progress(following_windows_similar)[[1]]
+  dollar_similar_list <- append(dollar_similar_list, dollar_p_similar)
+  dollar_p_actual <- get_dollar_progress(following_window_actual)[[1]]
+  dollar_actual_list <- append(dollar_actual_list, dollar_p_actual)
+  
+  total <- total + 1
+  match <- match + ifelse((dollar_p_actual-1) * (dollar_p_similar-1) > 0, 1, 0)
+
   # 1 direction
   # dollar progress, weighted by similarity, of "following windows similar"
   # dollar progress of following window actual
@@ -407,8 +406,10 @@ for (qry_window in rolling_windows) {
   # 2 volatility
   # same as above with volatility instead of dollar progress
 }
-
-
+plot(dollar_actual_list)
+plot(dollar_similar_list)
+total
+match
 
 
 
